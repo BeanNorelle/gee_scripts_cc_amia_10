@@ -13,7 +13,7 @@ Map.addLayer(
 );
 
 // ==============================
-// 2️⃣ CHIRPS Daily — aggregate to May monthly totals
+// 2️⃣ CHIRPS Daily — aggregate to June monthly totals
 // ==============================
 var chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
   .select('precipitation');
@@ -35,7 +35,7 @@ function monthlySum(year, month) {
 // ==============================
 var years = ee.List.sequence(1991, 2020);
 
-var MayCollection = ee.ImageCollection(
+var JuneCollection = ee.ImageCollection(
   years.map(function(y) {
     return monthlySum(ee.Number(y).toInt(), 5); // change month when needed 
   })
@@ -44,12 +44,12 @@ var MayCollection = ee.ImageCollection(
 // ==============================
 // 4️⃣ Mean Month rainfall (mm) across 30 years
 // ==============================
-var meanRainfall = MayCollection.mean().rename('Mean_Rainfall_mm');
+var meanRainfall = JuneCollection.mean().rename('Mean_Rainfall_mm');
 
 // Additional statistics
-var minRainfall  = MayCollection.min().rename('Min_Rainfall_mm');
-var maxRainfall  = MayCollection.max().rename('Max_Rainfall_mm');
-var stdDevRainfall = MayCollection
+var minRainfall  = JuneCollection.min().rename('Min_Rainfall_mm');
+var maxRainfall  = JuneCollection.max().rename('Max_Rainfall_mm');
+var stdDevRainfall = JuneCollection
   .reduce(ee.Reducer.stdDev())
   .rename('StdDev_Rainfall_mm');
 
@@ -76,13 +76,13 @@ var rainfallVis = {
 };
 
 Map.addLayer(meanRainfall, rainfallVis,
-  'Mean May Rainfall 1991–2020 (mm)');
+  'Mean June Rainfall 1991–2020 (mm)');
 Map.addLayer(minRainfall, rainfallVis,
-  'Min May Rainfall 1991–2020 (mm)', false);
+  'Min June Rainfall 1991–2020 (mm)', false);
 Map.addLayer(maxRainfall, rainfallVis,
-  'Max May Rainfall 1991–2020 (mm)', false);
+  'Max June Rainfall 1991–2020 (mm)', false);
 Map.addLayer(stdDevRainfall, {min: 0, max: 150, palette: ['fffde7','ff6f00']},
-  'StdDev May Rainfall 1991–2020 (mm)', false);
+  'StdDev June Rainfall 1991–2020 (mm)', false);
 
 // ==============================
 // 6️⃣ Classify mean rainfall into categories
@@ -100,7 +100,7 @@ var classified = ee.Image(0)
 Map.addLayer(classified, {
   min: 1, max: 6,
   palette: ['b71c1c','f46d43','fdae61','a6d96a','1a9850','0d47a1']
-}, 'Rainfall Classes — Mean May 1991–2020', false);
+}, 'Rainfall Classes — Mean June 1991–2020', false);
 
 // ==============================
 // 7️⃣ Legend Panel
@@ -114,7 +114,7 @@ var legend = ui.Panel({
 });
 
 legend.add(ui.Label({
-  value: '🌧️ Mean May Rainfall | 1991–2020 | Philippines',
+  value: '🌧️ Mean June Rainfall | 1991–2020 | Philippines',
   style: {fontWeight: 'bold', fontSize: '13px', margin: '0 0 4px 0'}
 }));
 legend.add(ui.Label({
@@ -181,7 +181,7 @@ Map.add(legend);
 // 8️⃣ Zonal Statistics
 // ==============================
 // National mean rainfall
-print('🌧️ National mean May rainfall (mm):', meanRainfall.reduceRegion({
+print('🌧️ National mean June rainfall (mm):', meanRainfall.reduceRegion({
   reducer: ee.Reducer.mean(),
   geometry: studyArea,
   scale: 1000,
@@ -206,10 +206,10 @@ var areaStats = areaImage.reduceRegion({
 print('📊 Area per rainfall class (km²):', areaStats);
 
 // ==============================
-// 9️⃣ Time series chart — national mean May rainfall per year
+// 9️⃣ Time series chart — national mean June rainfall per year
 // ==============================
 var chart = ui.Chart.image.series({
-  imageCollection: MayCollection,
+  imageCollection: JuneCollection,
   region: studyArea,
   reducer: ee.Reducer.mean(),
   scale: 5566,
@@ -217,7 +217,7 @@ var chart = ui.Chart.image.series({
 })
 .setChartType('ColumnChart')
 .setOptions({
-  title: 'National Mean May Rainfall 1991–2020 — Philippines',
+  title: 'National Mean June Rainfall 1991–2020 — Philippines',
   hAxis: {title: 'Year', format: 'yyyy'},
   vAxis: {
     title: 'Rainfall (mm)',
@@ -236,9 +236,9 @@ print(chart);
 // ==============================
 Export.image.toDrive({
   image: meanRainfall,
-  description: 'MeanRainfall_Philippines_May_1991_2020',
+  description: 'MeanRainfall_Philippines_June_1991_2020',
   folder: 'GEE_Exports',
-  fileNamePrefix: 'MeanRainfall_Philippines_May_1991_2020',
+  fileNamePrefix: 'MeanRainfall_Philippines_June_1991_2020',
   region: studyArea,
   scale: 1000,
   crs: 'EPSG:4326',
@@ -247,9 +247,9 @@ Export.image.toDrive({
 
 Export.image.toDrive({
   image: classified,
-  description: 'RainfallClass_Philippines_May_1991_2020',
+  description: 'RainfallClass_Philippines_June_1991_2020',
   folder: 'GEE_Exports',
-  fileNamePrefix: 'RainfallClass_Philippines_May_1991_2020',
+  fileNamePrefix: 'RainfallClass_Philippines_June_1991_2020',
   region: studyArea,
   scale: 1000,
   crs: 'EPSG:4326',
@@ -257,14 +257,14 @@ Export.image.toDrive({
 });
 
 // ==============================
-// Export — StdDev May Rainfall
+// Export — StdDev June Rainfall
 // ==============================
 
 Export.image.toDrive({
   image: stdDevRainfall,
-  description: 'RainfallStdDev_Philippines_May_1991_2020',
+  description: 'RainfallStdDev_Philippines_June_1991_2020',
   folder: 'GEE_Exports',
-  fileNamePrefix: 'RainfallStdDev_Philippines_May_1991_2020',
+  fileNamePrefix: 'RainfallStdDev_Philippines_June_1991_2020',
   region: studyArea,
   scale: 1000,
   crs: 'EPSG:4326',
@@ -272,13 +272,13 @@ Export.image.toDrive({
 });
 
 // ==============================
-// Export — Min May Rainfall
+// Export — Min June Rainfall
 // ==============================
 Export.image.toDrive({
   image: minRainfall,
-  description: 'MinRainfall_Philippines_May_1991_2020',
+  description: 'MinRainfall_Philippines_June_1991_2020',
   folder: 'GEE_Exports',
-  fileNamePrefix: 'MinRainfall_Philippines_May_1991_2020',
+  fileNamePrefix: 'MinRainfall_Philippines_June_1991_2020',
   region: studyArea,
   scale: 5566,
   crs: 'EPSG:4326',
@@ -286,13 +286,13 @@ Export.image.toDrive({
 });
 
 // ==============================
-// Export — Max May Rainfall
+// Export — Max June Rainfall
 // ==============================
 Export.image.toDrive({
   image: maxRainfall,
-  description: 'MaxRainfall_Philippines_May_1991_2020',
+  description: 'MaxRainfall_Philippines_June_1991_2020',
   folder: 'GEE_Exports',
-  fileNamePrefix: 'MaxRainfall_Philippines_May_1991_2020',
+  fileNamePrefix: 'MaxRainfall_Philippines_June_1991_2020',
   region: studyArea,
   scale: 5566,
   crs: 'EPSG:4326',
