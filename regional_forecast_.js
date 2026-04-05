@@ -201,30 +201,49 @@ var droughtClass = ee.Image(0)
   .rename('Drought_Risk_Class');
 
 // ============================================================
-// 🔟 VISUALIZATION PALETTES
+// 🔟 VISUALIZATION PALETTES  (matched to legend image)
 // ============================================================
+
+// 13 stops evenly spread across 0–400 mm
+// Breakpoints ~0, 33, 67, 80, 107, 133, 160, 200, 233, 267, 300, 340, 370, 400
 var rainfallVis = {
   min: 0, max: 400,
   palette: [
-    'ffffff','c6e9f7','74c8e8','2196f3',
-    '1565c0','0d47a1','1b5e20','388e3c',
-    'f9a825','e65100','b71c1c'
+    'bf2a2a',   //   0 mm — Very Dry (dark red)
+    'e04030',   //  33 mm — Very Dry (red)
+    'e8762a',   //  67 mm — Dry (orange)
+    'f5a040',   //  80 mm — Dry (light orange)
+    'f5cc70',   // 107 mm — Below Normal (amber-yellow)
+    'f5e8a0',   // 133 mm — Below Normal (pale yellow)
+    'e8f0a8',   // 160 mm — Moderate (yellow-green)
+    'b8dfa0',   // 200 mm — Above Normal (soft green)
+    '7ec880',   // 233 mm — Above Normal (medium green)
+    '50b890',   // 267 mm — Above Normal (teal-green)
+    '48a8b0',   // 300 mm — Above Normal (teal)
+    '5090c8',   // 340 mm — Very Wet (steel blue)
+    '2868a8'    // 400 mm — Very Wet (medium blue)
   ]
 };
 
 var anomalyVis = {
-  min: -100, max: 0,   
-  palette: ['b71c1c','ff7043','ffcc80','ffffff'] // deep red → light orange → white
+  min: -100, max: 0,
+  palette: ['bf2a2a','e8762a','f5e8a0','ffffff']  // red → orange → pale yellow → white
 };
 
 var zScoreVis = {
   min: -2, max: 0,
-  palette: ['7f0000','d32f2f','ef9a9a','ffffff'] // deep red → light red → white
+  palette: ['bf2a2a','e04030','f5cc70','ffffff']  // dark red → red → yellow → white
 };
 
+// Drought risk — aligns with the "% of normal" thresholds
 var droughtVis = {
   min: 0, max: 3,
-  palette: ['d4edda','fff3cd','ffd0a0','f8d7da']  // green→yellow→orange→red
+  palette: [
+    'e8f0a8',   // 0 = No risk    → Moderate/light-green tone
+    'f5e8a0',   // 1 = Low risk   → Below Normal / pale yellow
+    'f5a040',   // 2 = Moderate   → Dry / light orange
+    'e04030'    // 3 = High risk  → Very Dry / red
+  ]
 };
 
 // ============================================================
@@ -454,6 +473,36 @@ forecastData.forEach(function(d) {
     fontSize: '10px', fontWeight: 'bold',
     color: d.pct < 85 ? '#c62828' : d.pct < 90 ? '#e65100' : '#2e7d32'
   }}));
+  panel.add(row);
+});
+
+// Rainfall  legend
+panel.add(ui.Label('⚠️ Rainfall Amount', {fontSize: '11px', fontWeight: 'bold', margin: '10px 0 4px 0'}));
+
+var rainfallItems = [
+  {color: 'bf2a2a', label: '1 - 10 mm — Very Dry (dark red)'},
+  {color: 'e04030', label: '10 - 40 mm — Very Dry (red)'},
+  {color: 'e8762a', label: '40 - 60 mm — Dry (orange)'},
+  {color: 'f5a040', label: '60 - 80 mm — Dry (light orange)'},
+  {color: 'f5cc70', label: '80 - 100 mm — Below Normal (amber-yellow)'},
+  {color: 'f5e8a0', label: '100 - 120 mm — Below Normal (pale yellow)'},
+  {color: 'e8f0a8', label: '120 - 160 mm — Moderate (yellow-green)'},
+  {color: 'b8dfa0', label: '160 - 200 mm — Above Normal (soft green)'},
+  {color: '7ec880', label: '200 - 250 mm — Above Normal (medium green)'},
+  {color: '50b890', label: '250 - 300 mm — Above Normal (teal-green)'},
+  {color: '48a8b0', label: '300 - 340 mm — Above Normal (teal)'},
+  {color: '5090c8', label: '340 - 370 mm — Very Wet (steel blue)'},
+  {color: '2868a8', label: '370 - 400 mm — Very Wet (medium blue)'}
+];
+
+rainfallItems.forEach(function(item) {
+  var row = ui.Panel({layout: ui.Panel.Layout.flow('horizontal'), style: {margin: '1px 0'}});
+  row.add(ui.Label({style: {
+    backgroundColor: '#' + item.color,
+    padding: '7px', margin: '2px 6px 2px 0',
+    width: '14px', height: '14px', border: '1px solid #bbb'
+  }}));
+  row.add(ui.Label({value: item.label, style: {fontSize: '10px', fontFamily: 'monospace'}}));
   panel.add(row);
 });
 
