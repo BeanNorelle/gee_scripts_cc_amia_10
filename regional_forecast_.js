@@ -1,12 +1,46 @@
 // ============================================================
-// Region X — Projected May Rainfall Analysis
+// Region X — Projected July Rainfall Analysis V2.2  
 // CHIRPS Daily | Climatology 1991–2020 | FAO GAUL Level-2
 // ============================================================
+// by: Bean Sob
+// 
+//
+// PH-Rainfall-Projection Engine
+// -----------------------------
+// Description:
+//     Generates spatially explicit rainfall projections for the Philippine 
+//     territory by downscaling PAGASA provincial forecasts onto CHIRPS 
+//     climatological rasters (1991-2020 baseline).
 
+// Processing Logic:
+//     1. Align CHIRPS raster data with Philippine administrative boundaries.
+//     2. Map PAGASA's 'Percent of Normal' forecast to specific province geometries.
+//     3. Execute pixel-wise linear scaling to produce the final projected depth.
 
-var assetPath = 'users/YOUR_USERNAME/philippines_admin_boundaries';
+// Inputs: 
+//     - CHIRPS Monthly Average Raster (ARM)
+//     - PAGASA Provincial Forecast Data (PRM)
+// Output: 
+//     - Projected Rainfall Raster (PRF)
+//
+//
+// ============================================================
+// USER INPUT VARIABLES
+// ============================================================
 
-var assetBoundaries = ee.FeatureCollection(assetPath);
+// PAGASA forecast % of normal for each province in Region X (Northern Mindanao)
+var bukidnonPercent = 88.4;
+var camiguinPercent =  94.4;
+var lanaoDelNortePercent = 86.6;
+var misamisOccidentalPercent = 82.5;
+var misamisOrientalPercent = 83.7;
+
+var selectedMonth = 7;//change this value to select different month (1-12)
+
+var monthsList = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+var monthString = monthsList[selectedMonth -1];
+
 // ============================================================
 // 1️⃣ PHILIPPINES BOUNDARY (full-detail LSIB 2017)
 // ============================================================
@@ -29,7 +63,6 @@ print('All PH region names:',
 );
 
 
-// DEBUG: Uncomment to verify ADM1_NAME values in GEE Console
 // print('All ADM1 regions:', allProvinces.aggregate_array('ADM1_NAME').distinct().sort());
 
 var provinces = allProvinces
@@ -61,21 +94,21 @@ function monthlySum(year, month) {
 }
 
 // ============================================================
-// 4️⃣ May CLIMATOLOGY (1991–2020)
+// 4️⃣ Selected Month CLIMATOLOGY (1991–2020)
 // ============================================================
 var years = ee.List.sequence(1991, 2020);
 
-var MayCollection = ee.ImageCollection(
-  years.map(function(y) { return monthlySum(y, 5); }) //change month when if needed
+var monthCollection = ee.ImageCollection(
+  years.map(function(y) { return monthlySum(y, selectedMonth); }) //{selectedMonth}  got to line 37 if need to change month
 );
 
-var meanRainfall   = MayCollection.mean().rename('Mean_Rainfall_mm');
-var stdDevRainfall = MayCollection
+var meanRainfall   = monthCollection.mean().rename('Mean_Rainfall_mm');
+var stdDevRainfall = monthCollection
   .reduce(ee.Reducer.stdDev())
   .select('precipitation_stdDev')   // explicit band select before rename
   .rename('StdDev_Rainfall_mm');
-var minRainfall    = MayCollection.min().rename('Min_Rainfall_mm');
-var maxRainfall    = MayCollection.max().rename('Max_Rainfall_mm');
+var minRainfall    = monthCollection.min().rename('Min_Rainfall_mm');
+var maxRainfall    = monthCollection.max().rename('Max_Rainfall_mm');
 
 // Coefficient of Variation (%) — inter-annual reliability
 var cvRainfall = stdDevRainfall
@@ -87,11 +120,11 @@ var cvRainfall = stdDevRainfall
 // 5️⃣ FORECAST TABLE — % of Normal (PAGASA-style)
 // ============================================================
 var forecastTable = ee.FeatureCollection([
-  ee.Feature(null, {ADM2_NAME: 'Bukidnon',          forecast_pct: 108.8}),
-  ee.Feature(null, {ADM2_NAME: 'Camiguin',           forecast_pct: 120.3}),
-  ee.Feature(null, {ADM2_NAME: 'Lanao del Norte',    forecast_pct: 112.1}),
-  ee.Feature(null, {ADM2_NAME: 'Misamis Occidental', forecast_pct: 115.2}),
-  ee.Feature(null, {ADM2_NAME: 'Misamis Oriental',   forecast_pct: 114.1})
+  ee.Feature(null, {ADM2_NAME: 'Bukidnon',          forecast_pct: bukidnonPercent}),
+  ee.Feature(null, {ADM2_NAME: 'Camiguin',           forecast_pct: camiguinPercent}),
+  ee.Feature(null, {ADM2_NAME: 'Lanao del Norte',    forecast_pct: lanaoDelNortePercent}),
+  ee.Feature(null, {ADM2_NAME: 'Misamis Occidental', forecast_pct: misamisOccidentalPercent}),
+  ee.Feature(null, {ADM2_NAME: 'Misamis Oriental',   forecast_pct: misamisOrientalPercent})
 ]);
 
 // ============================================================
@@ -149,7 +182,6 @@ var percentAnomaly = projectedRainfall
   .multiply(100)
   .rename('Percent_Anomaly_pct');
 
-// Standardised Anomaly (Z-score relative to climatological spread)
 var zScore = projectedRainfall
   .subtract(meanRainfall.clip(regionGeom))
   .divide(stdDevRainfall.clip(regionGeom))
@@ -181,13 +213,13 @@ var rainfallVis = {
 };
 
 var anomalyVis = {
-  min: -100, max: 0,     // Region X forecast is always below normal
-  palette: ['b71c1c','ff7043','ffcc80','ffffff']
+  min: -100, max: 0,   
+  palette: ['b71c1c','ff7043','ffcc80','ffffff'] // deep red → light orange → white
 };
 
 var zScoreVis = {
   min: -2, max: 0,
-  palette: ['7f0000','d32f2f','ef9a9a','ffffff']
+  palette: ['7f0000','d32f2f','ef9a9a','ffffff'] // deep red → light red → white
 };
 
 var droughtVis = {
@@ -202,11 +234,11 @@ var droughtVis = {
 Map.addLayer(
   meanRainfall.clip(philippinesGeom),
   rainfallVis,
-  '🗺️ National Mean May Rainfall (1991–2020)', false
+  '🗺️ National Mean `' + monthString + '` Rainfall (1991–2020)', false
 );
 
 // Region X layers
-Map.addLayer(projectedRainfall,  rainfallVis,   '🌧️ Projected May Rainfall (mm)');
+Map.addLayer(projectedRainfall,  rainfallVis,   '🌧️ Projected ' + monthString + ' Rainfall (mm)');
 Map.addLayer(absoluteAnomaly,    anomalyVis,    '📉 Absolute Anomaly (mm)',          false);
 Map.addLayer(percentAnomaly,
   {min: -20, max: 0, palette: ['b71c1c','ff7043','fff9c4','ffffff']},
@@ -217,7 +249,6 @@ Map.addLayer(cvRainfall.clip(regionGeom),
   {min: 0, max: 100, palette: ['e0f7fa','0097a7','004d5e']},
   '📈 Coefficient of Variation (%)', false);
 
-// Province boundaries overlay (always visible)
 Map.addLayer(
   ee.Image().paint(provinces, 0, 1),
   {palette: ['222222']},
@@ -286,7 +317,7 @@ var barChart = ui.Chart.image.byRegion({
 })
 .setChartType('ColumnChart')
 .setOptions({
-  title:  'May Rainfall — Climatology vs Projected | Region X',
+  title:  monthString + ' Rainfall — Climatology vs Projected | Region X',
   hAxis:  {title: 'Province'},
   vAxis:  {title: 'Rainfall (mm)', viewWindow: {min: 0}},
   series: {
@@ -303,7 +334,7 @@ print(barChart);
 
 // B) Time series 1991–2020 with trendline
 var tsChart = ui.Chart.image.series({
-  imageCollection: MayCollection,
+  imageCollection: monthCollection,
   region:          regionGeom,
   reducer:         ee.Reducer.mean(),
   scale:           5566,
@@ -311,7 +342,7 @@ var tsChart = ui.Chart.image.series({
 })
 .setChartType('LineChart')
 .setOptions({
-  title:     'Regional Mean May Rainfall 1991–2020 — Region X',
+  title:     'Regional Mean ' + monthString + ' Rainfall 1991–2020 — Region X',
   hAxis:     {title: 'Year', format: 'yyyy'},
   vAxis:     {title: 'Rainfall (mm)', viewWindow: {min: 0}},
   series:    {0: {color: '1565c0', lineWidth: 2, pointSize: 4}},
@@ -331,7 +362,7 @@ var pctChart = ui.Chart.feature.byFeature({
 })
 .setChartType('BarChart')
 .setOptions({
-  title:   '% of Normal — May Forecast | Region X',
+  title:   '% of Normal — ' + monthString + ' Forecast | Region X',
   hAxis:   {title: '% of Normal', viewWindow: {min: 0, max: 110},
             baseline: 100, baselineColor: 'green'},
   vAxis:   {title: 'Province'},
@@ -354,7 +385,7 @@ var panel = ui.Panel({
 });
 
 panel.add(ui.Label({
-  value: '🌧️ Projected May Rainfall',
+  value: '🌧️ Projected ' + monthString + ' Rainfall',
   style: {fontWeight: 'bold', fontSize: '14px', margin: '0 0 2px 0'}
 }));
 panel.add(ui.Label({
@@ -408,12 +439,13 @@ riskItems.forEach(function(item) {
 panel.add(ui.Label('📋 Forecast (% of Normal)', {fontSize: '11px', fontWeight: 'bold', margin: '10px 0 4px 0'}));
 
 var forecastData = [
-  {name: 'Bukidnon',          pct: 108.8},
-  {name: 'Camiguin',          pct: 120.3},
-  {name: 'Lanao del Norte',   pct: 112.1},
-  {name: 'Misamis Occidental',pct: 115.2},
-  {name: 'Misamis Oriental',  pct: 114.1}
+  {name: 'Bukidnon',          pct: bukidnonPercent},
+  {name: 'Camiguin',          pct: camiguinPercent},
+  {name: 'Lanao del Norte',   pct: lanaoDelNortePercent},
+  {name: 'Misamis Occidental',pct: misamisOccidentalPercent},
+  {name: 'Misamis Oriental',  pct: misamisOrientalPercent}
 ];
+
 
 forecastData.forEach(function(d) {
   var row = ui.Panel({layout: ui.Panel.Layout.flow('horizontal'), style: {margin: '1px 0'}});
@@ -500,40 +532,52 @@ var exportBase = {
   folder:    'GEE_Exports'
 };
 
-var exportLayers = [
-  {image: projectedRainfall,             name: 'Projected_May_Rainfall_RegionX'},
-  {image: meanRainfall.clip(regionGeom), name: 'Clim_Mean_May_Rainfall_RegionX'},
-  {image: absoluteAnomaly,               name: 'Absolute_Anomaly_mm_RegionX'},
-  {image: percentAnomaly,                name: 'Percent_Anomaly_pct_RegionX'},
-  {image: zScore,                        name: 'ZScore_RegionX'},
-  {image: droughtClass,                  name: 'Drought_Risk_Class_RegionX'},
-  {image: cvRainfall.clip(regionGeom),   name: 'CV_Rainfall_pct_RegionX'}
-];
+// var exportLayers = [
+//   {image: projectedRainfall,             name: 'Projected_July_Rainfall_RegionX'},
+//   {image: meanRainfall.clip(regionGeom), name: 'Clim_Mean_July_Rainfall_RegionX'},
+//   {image: absoluteAnomaly,               name: 'Absolute_Anomaly_mm_RegionX'},
+//   {image: percentAnomaly,                name: 'Percent_Anomaly_pct_RegionX'},
+//   {image: zScore,                        name: 'ZScore_RegionX'},
+//   {image: droughtClass,                  name: 'Drought_Risk_Class_RegionX'},
+//   {image: cvRainfall.clip(regionGeom),   name: 'CV_Rainfall_pct_RegionX'}
+// ];
 
-exportLayers.forEach(function(layer) {
-  Export.image.toDrive(Object.assign({}, exportBase, {
-    image:          layer.image,
-    description:    layer.name,
-    fileNamePrefix: layer.name
-  }));
+// exportLayers.forEach(function(layer) {
+//   Export.image.toDrive(Object.assign({}, exportBase, {
+//     image:          layer.image,
+//     description:    layer.name,
+//     fileNamePrefix: layer.name
+//   }));
+// });
+
+Export.image.toDrive({
+  image: projectedRainfall,
+  description: 'Projected_' + monthString + '_Rainfall_RegionX',
+  folder: 'GEE_Exports',
+  fileNamePrefix: 'Projected_' + monthString + '_Rainfall_RegionX',
+  region: regionGeom,
+  scale: 5566,
+  crs: 'EPSG:4326',
+  maxPixels: 1e13
+});
+
+Export.image.toDrive({
+  image: meanRainfall.clip(philippinesGeom),
+  description: 'National_Mean_' + monthString + '_Rainfall_PH',
+  folder: 'GEE_Exports',
+  fileNamePrefix: 'National_Mean_' + monthString + '_Rainfall_PH',
+  region: philippinesGeom,
+  scale: 5566,
+  crs: 'EPSG:4326',
+  maxPixels: 1e13
 });
 
 // Export.image.toDrive({
-//   image: projectedRainfall,
-//   description: 'Projected_May_Rainfall_RegionX',
+//   image: meanRainfall,
+//   description: 'Projected_July_Rainfall_RegionX',
 //   folder: 'GEE_Exports',
-//   fileNamePrefix: 'Projected_May_Rainfall_RegionX',
-//   region: studyArea,
-//   scale: 5566,
-//   crs: 'EPSG:4326',
-//   maxPixels: 1e13
-// });
-// Export.image.toDrive({
-//   image: projectedRainfall,
-//   description: 'Projected_May_Rainfall_RegionX',
-//   folder: 'GEE_Exports',
-//   fileNamePrefix: 'Projected_May_Rainfall_RegionX',
-//   region: studyArea,
+//   fileNamePrefix: 'Projected_July_Rainfall_RegionX',
+//   region: philippinesGeom,
 //   scale: 5566,
 //   crs: 'EPSG:4326',
 //   maxPixels: 1e13
